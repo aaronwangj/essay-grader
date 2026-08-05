@@ -169,6 +169,10 @@
         <button id="grade">Grade essay</button>
       </div>
     </div>
+    <div class="meta" style="margin-top:12px">
+      <span id="credits">Checking grades left…</span>
+      <span>Each grade uses one credit</span>
+    </div>
   </div>
 
   <p id="status"></p>
@@ -197,6 +201,28 @@ $('essay').addEventListener('input', () => {
   const n = ($('essay').value.trim().match(/\S+/g) || []).length;
   $('wordcount').textContent = n + ' words';
 });
+
+// --- credits ---
+let creditsNow = null;
+function setCredits(n){
+  creditsNow = n;
+  if (n === null || isNaN(n)) { $('credits').textContent = ''; return; }
+  if (n <= 0) {
+    $('credits').textContent = 'No grades left (0 of 10)';
+    $('credits').style.color = 'var(--bad)';
+    $('grade').disabled = true;
+  } else {
+    $('credits').textContent = `Grades left: ${n} of 10`;
+    $('credits').style.color = n <= 2 ? 'var(--warn)' : '';
+    $('grade').disabled = false;
+  }
+}
+(async () => {
+  try {
+    const r = await fetch(WORKER_URL);
+    setCredits((await r.json()).remaining);
+  } catch { $('credits').textContent = ''; }
+})();
 
 // --- minimal markdown renderer ---
 function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -274,9 +300,13 @@ async function grade(){
         const err = await resp.json();
         if (resp.status === 401) msg = 'Wrong password.';
         else if (err?.error) msg = err.error;
+        if (resp.status === 403) setCredits(0);
       } catch {}
       throw new Error(msg);
     }
+
+    const creditsLeft = resp.headers.get('x-credits-remaining');
+    if (creditsLeft !== null) setCredits(parseInt(creditsLeft, 10));
 
     status.textContent = 'Thinking…';
     const reader = resp.body.getReader();
@@ -319,7 +349,7 @@ async function grade(){
     status.className = 'err';
     status.textContent = e.message || 'Something went wrong.';
   } finally {
-    btn.disabled = false;
+    btn.disabled = creditsNow !== null && creditsNow <= 0;
   }
 }
 
