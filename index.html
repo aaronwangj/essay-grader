@@ -75,7 +75,7 @@
   textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
 
   .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: end; }
-  .row > div { flex: 1; min-width: 180px; }
+  .row > div { flex: 1; min-width: 160px; }
   .meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 0.82rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
   button#grade {
@@ -91,12 +91,6 @@
   button#grade:hover { filter: brightness(1.08); }
   button#grade:disabled { opacity: 0.5; cursor: default; }
   @media (prefers-color-scheme: dark) { button#grade { color: #10222e; } }
-
-  details.keybox { margin-bottom: 18px; }
-  details.keybox summary { cursor: pointer; font-size: 0.88rem; color: var(--ink-soft); }
-  details.keybox .card { margin-top: 10px; margin-bottom: 0; }
-  .keynote { font-size: 0.82rem; color: var(--ink-soft); margin-top: 8px; }
-  .keynote a { color: var(--accent); }
 
   #status { font-size: 0.9rem; color: var(--ink-soft); margin: 6px 0 14px; min-height: 1.3em; }
   #status.err { color: var(--bad); }
@@ -138,16 +132,6 @@
     <p>Paste a college essay and get a score out of 100 with an admissions-reader critique.</p>
   </header>
 
-  <details class="keybox" id="keybox">
-    <summary>API key settings</summary>
-    <div class="card">
-      <label for="apikey">Anthropic API key</label>
-      <input type="password" id="apikey" placeholder="sk-ant-..." autocomplete="off">
-      <p class="keynote">Stored only in this browser (localStorage). Get a key at
-        <a href="https://platform.claude.com" target="_blank" rel="noopener">platform.claude.com</a>.</p>
-    </div>
-  </details>
-
   <div class="card">
     <label for="essay">Essay</label>
     <textarea id="essay" placeholder="Paste the full essay here…" spellcheck="false"></textarea>
@@ -163,19 +147,23 @@
         <label for="etype">Essay type</label>
         <select id="etype">
           <option>Common App personal statement</option>
-          <option>School supplemental essay</option>
-          <option>"Why us" essay</option>
-          <option>Scholarship essay</option>
-          <option>Other / not sure</option>
+          <option disabled>School supplemental essay</option>
+          <option disabled>"Why us" essay</option>
+          <option disabled>Scholarship essay</option>
+          <option disabled>Other / not sure</option>
         </select>
       </div>
       <div>
         <label for="tier">Grading bar</label>
         <select id="tier">
           <option value="top-30">Top-30 schools (default)</option>
-          <option value="top-10">HYPSM / top-10</option>
-          <option value="state flagship">State flagships</option>
+          <option value="top-10" disabled>HYPSM / top-10</option>
+          <option value="state flagship" disabled>State flagships</option>
         </select>
+      </div>
+      <div>
+        <label for="pw">Password</label>
+        <input type="password" id="pw" placeholder="Ask Aaron" autocomplete="off">
       </div>
       <div style="flex:0 0 auto">
         <button id="grade">Grade essay</button>
@@ -198,45 +186,17 @@
 </div>
 
 <script>
+const WORKER_URL = 'https://essay-grader-api.aaron-362.workers.dev'; // filled in at deploy time
+
 const $ = id => document.getElementById(id);
 
 // --- persistence & word count ---
-$('apikey').value = localStorage.getItem('essay_grader_key') || '';
-if (!$('apikey').value) $('keybox').open = true;
-$('apikey').addEventListener('change', () => localStorage.setItem('essay_grader_key', $('apikey').value.trim()));
+$('pw').value = localStorage.getItem('essay_grader_pw') || '';
+$('pw').addEventListener('change', () => localStorage.setItem('essay_grader_pw', $('pw').value.trim()));
 $('essay').addEventListener('input', () => {
   const n = ($('essay').value.trim().match(/\S+/g) || []).length;
   $('wordcount').textContent = n + ' words';
 });
-
-const SYSTEM_PROMPT = `You are an experienced college admissions essay reader and coach. You have read thousands of application essays and you know what distinguishes a memorable essay from a forgettable one at 9pm on file #40. You give honest, specific, actionable feedback - never inflated praise.
-
-Grade the essay out of 100 against the bar the user specifies. Calibration anchors:
-- 85-95: Distinctive voice, a concrete story with real stakes or a real failure, specific sensory details, an ending that lands as an image or beat rather than a values statement. Reader remembers the applicant as a person.
-- 65-80: Real material and moments of genuine voice, but diluted - some abstraction, name-dropping, virtue-listing, or an unfinished/generic ending. Fixable into an 85+ with cuts and deepening.
-- 50-65: Polished prose about an abstraction or an idea rather than a person. No scene, no other people, no conflict, no change. Thesaurus-heavy register. Tells instead of shows.
-- Below 50: Cliched topic handled generically, serious mechanical problems, or reads as written by someone else.
-
-What you reward: one specific story with stakes; a failure or vulnerability the writer stays likable through; concrete objects and sensory detail; consistent authentic voice; endings that close a loop; showing values through action.
-What you penalize: philosophy-lecture paragraphs; corporate values lists ("kindness, integrity, compassion"); name-drop travelogues and credential flexing; purple thesaurus prose ("scintillating, unfettered, incandescent"); mission-statement endings; condescension toward the writer's community; grammar and parallelism errors; anything that reads as AI-assisted or performance rather than person.
-
-Structure your response EXACTLY like this, starting with the score line:
-SCORE: <number>
-ONE-LINER: <one sentence verdict a parent could repeat>
-
-## What works
-2-4 bullet points, each quoting or citing something specific in the essay.
-
-## What's hurting it
-The 3-5 biggest problems, numbered and ranked by impact. Quote the offending lines. Be direct.
-
-## How to fix it
-Concrete revision moves - what to cut, what to expand, what one story to build around, how to end. If mechanics are broken, list the specific errors.
-
-## Bottom line
-2-3 sentences: what this essay does to an application at the stated bar as-is, and what it could become if revised.
-
-Be honest. A generous score helps no one during application season.`;
 
 // --- minimal markdown renderer ---
 function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -282,11 +242,11 @@ function paint(fullText, streaming){
 }
 
 async function grade(){
-  const key = $('apikey').value.trim();
+  const pw = $('pw').value.trim();
   const essay = $('essay').value.trim();
   const status = $('status');
   status.className = '';
-  if (!key) { $('keybox').open = true; status.className = 'err'; status.textContent = 'Enter your API key first (it stays in this browser).'; return; }
+  if (!pw) { status.className = 'err'; status.textContent = 'Enter the password first.'; return; }
   if (essay.length < 200) { status.className = 'err'; status.textContent = 'Paste the full essay first.'; return; }
 
   const btn = $('grade');
@@ -296,25 +256,15 @@ async function grade(){
   $('oneliner').textContent = ''; $('feedback').innerHTML = '';
   status.textContent = 'Reading the essay…';
 
-  const userMsg = `Essay type: ${$('etype').value}\nGrading bar: ${$('tier').value}\nWord count: ${$('wordcount').textContent}\n\nEssay:\n"""\n${essay}\n"""`;
-
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'server-side-fallback-2026-07-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-fable-5',
-        fallbacks: 'default',
-        max_tokens: 16000,
-        stream: true,
-        system: [{ type: 'text', text: SYSTEM_PROMPT }],
-        messages: [{ role: 'user', content: userMsg }]
+        password: pw,
+        essay: essay,
+        essayType: $('etype').value,
+        bar: $('tier').value
       })
     });
 
@@ -322,9 +272,8 @@ async function grade(){
       let msg = `Request failed (${resp.status}).`;
       try {
         const err = await resp.json();
-        if (resp.status === 401) msg = 'Invalid API key - check it and try again.';
-        else if (resp.status === 429) msg = 'Rate limited - wait a minute and try again.';
-        else if (err?.error?.message) msg = err.error.message;
+        if (resp.status === 401) msg = 'Wrong password.';
+        else if (err?.error) msg = err.error;
       } catch {}
       throw new Error(msg);
     }
