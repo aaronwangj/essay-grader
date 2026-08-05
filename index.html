@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Essay Grader</title>
+<style>
+  :root {
+    --paper: #fbfaf7;
+    --card: #ffffff;
+    --ink: #1c2430;
+    --ink-soft: #5a6472;
+    --line: #e3e0d8;
+    --accent: #17557a;
+    --accent-soft: #eaf2f7;
+    --good: #2e7d4f;
+    --warn: #b3541e;
+    --bad: #b3372e;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #15181d;
+      --card: #1d2129;
+      --ink: #e8e6e1;
+      --ink-soft: #9aa3ae;
+      --line: #313743;
+      --accent: #6db3d9;
+      --accent-soft: #1e2c36;
+      --good: #6fbf8f;
+      --warn: #d98d55;
+      --bad: #d97066;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+  header { margin-bottom: 28px; }
+  h1 { font-family: var(--serif); font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; }
+  header p { color: var(--ink-soft); margin-top: 4px; font-size: 0.95rem; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+  label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); margin-bottom: 6px; }
+  textarea, input[type=password], select {
+    width: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 0.95rem;
+    font-family: var(--sans);
+  }
+  textarea {
+    font-family: var(--serif);
+    font-size: 1.02rem;
+    line-height: 1.65;
+    min-height: 320px;
+    resize: vertical;
+  }
+  textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: end; }
+  .row > div { flex: 1; min-width: 180px; }
+  .meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 0.82rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+  button#grade {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button#grade:hover { filter: brightness(1.08); }
+  button#grade:disabled { opacity: 0.5; cursor: default; }
+  @media (prefers-color-scheme: dark) { button#grade { color: #10222e; } }
+
+  details.keybox { margin-bottom: 18px; }
+  details.keybox summary { cursor: pointer; font-size: 0.88rem; color: var(--ink-soft); }
+  details.keybox .card { margin-top: 10px; margin-bottom: 0; }
+  .keynote { font-size: 0.82rem; color: var(--ink-soft); margin-top: 8px; }
+  .keynote a { color: var(--accent); }
+
+  #status { font-size: 0.9rem; color: var(--ink-soft); margin: 6px 0 14px; min-height: 1.3em; }
+  #status.err { color: var(--bad); }
+
+  #result { display: none; }
+  .scorehead { display: flex; align-items: center; gap: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .scorenum {
+    font-family: var(--serif);
+    font-size: 3.4rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    min-width: 2.2ch;
+  }
+  .scorenum.good { color: var(--good); }
+  .scorenum.mid { color: var(--warn); }
+  .scorenum.low { color: var(--bad); }
+  .scorelabel { color: var(--ink-soft); font-size: 0.85rem; }
+  .oneliner { font-family: var(--serif); font-size: 1.1rem; margin-top: 4px; }
+
+  #feedback h2 { font-family: var(--serif); font-size: 1.2rem; margin: 20px 0 8px; }
+  #feedback h3 { font-size: 1rem; margin: 14px 0 6px; }
+  #feedback p { margin: 8px 0; }
+  #feedback ul, #feedback ol { margin: 8px 0 8px 22px; }
+  #feedback li { margin: 5px 0; }
+  #feedback strong { font-weight: 650; }
+  #feedback blockquote { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 8px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-style: italic; }
+  #feedback code { font-family: var(--mono); font-size: 0.88em; }
+
+  .cursor { display: inline-block; width: 8px; height: 1em; background: var(--accent); vertical-align: text-bottom; animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Essay Grader</h1>
+    <p>Paste a college essay and get a score out of 100 with an admissions-reader critique.</p>
+  </header>
+
+  <details class="keybox" id="keybox">
+    <summary>API key settings</summary>
+    <div class="card">
+      <label for="apikey">Anthropic API key</label>
+      <input type="password" id="apikey" placeholder="sk-ant-..." autocomplete="off">
+      <p class="keynote">Stored only in this browser (localStorage). Get a key at
+        <a href="https://platform.claude.com" target="_blank" rel="noopener">platform.claude.com</a>.</p>
+    </div>
+  </details>
+
+  <div class="card">
+    <label for="essay">Essay</label>
+    <textarea id="essay" placeholder="Paste the full essay here…" spellcheck="false"></textarea>
+    <div class="meta">
+      <span id="wordcount">0 words</span>
+      <span>Common App limit: 650 words</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="etype">Essay type</label>
+        <select id="etype">
+          <option>Common App personal statement</option>
+          <option>School supplemental essay</option>
+          <option>"Why us" essay</option>
+          <option>Scholarship essay</option>
+          <option>Other / not sure</option>
+        </select>
+      </div>
+      <div>
+        <label for="tier">Grading bar</label>
+        <select id="tier">
+          <option value="top-30">Top-30 schools (default)</option>
+          <option value="top-10">HYPSM / top-10</option>
+          <option value="state flagship">State flagships</option>
+        </select>
+      </div>
+      <div style="flex:0 0 auto">
+        <button id="grade">Grade essay</button>
+      </div>
+    </div>
+  </div>
+
+  <p id="status"></p>
+
+  <div class="card" id="result">
+    <div class="scorehead">
+      <div>
+        <div class="scorenum" id="scorenum">–</div>
+        <div class="scorelabel">out of 100</div>
+      </div>
+      <div class="oneliner" id="oneliner"></div>
+    </div>
+    <div id="feedback"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// --- persistence & word count ---
+$('apikey').value = localStorage.getItem('essay_grader_key') || '';
+if (!$('apikey').value) $('keybox').open = true;
+$('apikey').addEventListener('change', () => localStorage.setItem('essay_grader_key', $('apikey').value.trim()));
+$('essay').addEventListener('input', () => {
+  const n = ($('essay').value.trim().match(/\S+/g) || []).length;
+  $('wordcount').textContent = n + ' words';
+});
+
+const SYSTEM_PROMPT = `You are an experienced college admissions essay reader and coach. You have read thousands of application essays and you know what distinguishes a memorable essay from a forgettable one at 9pm on file #40. You give honest, specific, actionable feedback - never inflated praise.
+
+Grade the essay out of 100 against the bar the user specifies. Calibration anchors:
+- 85-95: Distinctive voice, a concrete story with real stakes or a real failure, specific sensory details, an ending that lands as an image or beat rather than a values statement. Reader remembers the applicant as a person.
+- 65-80: Real material and moments of genuine voice, but diluted - some abstraction, name-dropping, virtue-listing, or an unfinished/generic ending. Fixable into an 85+ with cuts and deepening.
+- 50-65: Polished prose about an abstraction or an idea rather than a person. No scene, no other people, no conflict, no change. Thesaurus-heavy register. Tells instead of shows.
+- Below 50: Cliched topic handled generically, serious mechanical problems, or reads as written by someone else.
+
+What you reward: one specific story with stakes; a failure or vulnerability the writer stays likable through; concrete objects and sensory detail; consistent authentic voice; endings that close a loop; showing values through action.
+What you penalize: philosophy-lecture paragraphs; corporate values lists ("kindness, integrity, compassion"); name-drop travelogues and credential flexing; purple thesaurus prose ("scintillating, unfettered, incandescent"); mission-statement endings; condescension toward the writer's community; grammar and parallelism errors; anything that reads as AI-assisted or performance rather than person.
+
+Structure your response EXACTLY like this, starting with the score line:
+SCORE: <number>
+ONE-LINER: <one sentence verdict a parent could repeat>
+
+## What works
+2-4 bullet points, each quoting or citing something specific in the essay.
+
+## What's hurting it
+The 3-5 biggest problems, numbered and ranked by impact. Quote the offending lines. Be direct.
+
+## How to fix it
+Concrete revision moves - what to cut, what to expand, what one story to build around, how to end. If mechanics are broken, list the specific errors.
+
+## Bottom line
+2-3 sentences: what this essay does to an application at the stated bar as-is, and what it could become if revised.
+
+Be honest. A generous score helps no one during application season.`;
+
+// --- minimal markdown renderer ---
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderMD(md){
+  const lines = md.split('\n');
+  let html = '', list = null;
+  const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+  const inline = s => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/"([^"]+)"/g, '&ldquo;$1&rdquo;');
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (/^## /.test(line)) { closeList(); html += `<h2>${inline(line.slice(3))}</h2>`; }
+    else if (/^### /.test(line)) { closeList(); html += `<h3>${inline(line.slice(4))}</h3>`; }
+    else if (/^\s*[-*] /.test(line)) { if (list !== 'ul') { closeList(); html += '<ul>'; list = 'ul'; } html += `<li>${inline(line.replace(/^\s*[-*] /,''))}</li>`; }
+    else if (/^\s*\d+[.)] /.test(line)) { if (list !== 'ol') { closeList(); html += '<ol>'; list = 'ol'; } html += `<li>${inline(line.replace(/^\s*\d+[.)] /,''))}</li>`; }
+    else if (/^> /.test(line)) { closeList(); html += `<blockquote>${inline(line.slice(2))}</blockquote>`; }
+    else if (line === '') { closeList(); }
+    else { closeList(); html += `<p>${inline(line)}</p>`; }
+  }
+  closeList();
+  return html;
+}
+
+// --- streaming render: pull SCORE / ONE-LINER off the top, markdown the rest ---
+function paint(fullText, streaming){
+  let body = fullText;
+  const scoreMatch = body.match(/^SCORE:\s*(\d{1,3})\s*\n?/);
+  if (scoreMatch) {
+    const n = Math.min(100, parseInt(scoreMatch[1], 10));
+    const el = $('scorenum');
+    el.textContent = n;
+    el.className = 'scorenum ' + (n >= 80 ? 'good' : n >= 60 ? 'mid' : 'low');
+    body = body.slice(scoreMatch[0].length);
+  }
+  const olMatch = body.match(/^ONE-LINER:\s*(.+?)(\n|$)/);
+  if (olMatch) {
+    $('oneliner').textContent = olMatch[1];
+    body = body.slice(olMatch[0].length);
+  }
+  $('feedback').innerHTML = renderMD(body) + (streaming ? '<span class="cursor"></span>' : '');
+}
+
+async function grade(){
+  const key = $('apikey').value.trim();
+  const essay = $('essay').value.trim();
+  const status = $('status');
+  status.className = '';
+  if (!key) { $('keybox').open = true; status.className = 'err'; status.textContent = 'Enter your API key first (it stays in this browser).'; return; }
+  if (essay.length < 200) { status.className = 'err'; status.textContent = 'Paste the full essay first.'; return; }
+
+  const btn = $('grade');
+  btn.disabled = true;
+  $('result').style.display = 'block';
+  $('scorenum').textContent = '–'; $('scorenum').className = 'scorenum';
+  $('oneliner').textContent = ''; $('feedback').innerHTML = '';
+  status.textContent = 'Reading the essay…';
+
+  const userMsg = `Essay type: ${$('etype').value}\nGrading bar: ${$('tier').value}\nWord count: ${$('wordcount').textContent}\n\nEssay:\n"""\n${essay}\n"""`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-5',
+        max_tokens: 16000,
+        stream: true,
+        system: [{ type: 'text', text: SYSTEM_PROMPT }],
+        messages: [{ role: 'user', content: userMsg }]
+      })
+    });
+
+    if (!resp.ok) {
+      let msg = `Request failed (${resp.status}).`;
+      try {
+        const err = await resp.json();
+        if (resp.status === 401) msg = 'Invalid API key - check it and try again.';
+        else if (resp.status === 429) msg = 'Rate limited - wait a minute and try again.';
+        else if (err?.error?.message) msg = err.error.message;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    status.textContent = 'Thinking…';
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '', text = '', stopReason = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        const dataLine = part.split('\n').find(l => l.startsWith('data: '));
+        if (!dataLine) continue;
+        let ev;
+        try { ev = JSON.parse(dataLine.slice(6)); } catch { continue; }
+        if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+          if (!text) status.textContent = 'Grading…';
+          text += ev.delta.text;
+          paint(text, true);
+        } else if (ev.type === 'message_delta' && ev.delta?.stop_reason) {
+          stopReason = ev.delta.stop_reason;
+        } else if (ev.type === 'error') {
+          throw new Error(ev.error?.message || 'Stream error.');
+        }
+      }
+    }
+
+    paint(text, false);
+    if (stopReason === 'refusal') {
+      status.className = 'err';
+      status.textContent = 'The model declined to grade this content.';
+    } else if (stopReason === 'max_tokens') {
+      status.textContent = 'Done (response hit the length limit).';
+    } else {
+      status.textContent = 'Done.';
+    }
+  } catch (e) {
+    status.className = 'err';
+    status.textContent = e.message || 'Something went wrong.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('grade').addEventListener('click', grade);
+</script>
+</body>
+</html>
